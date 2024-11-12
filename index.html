@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Detection Control Panel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <style>
+        .grid-cell {
+            aspect-ratio: 1;
+            transition: all 0.3s ease;
+        }
+        .grid-cell.active {
+            background-color: #ef4444;
+        }
+        .grid-cell.override {
+            background-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8 text-center">Motion Detection Control Panel</h1>
+        
+        <!-- Status Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">System Status</h2>
+            <div class="flex items-center space-x-4 mb-4">
+                <div id="humanStatus" class="px-4 py-2 rounded-full text-white bg-gray-500">
+                    No Human Detected
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Control Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Grid Control</h2>
+            <div class="grid grid-cols-2 gap-4 mb-8" style="grid-template-rows: repeat(3, 1fr);">
+                <!-- Grid cells will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gridContainer = document.querySelector('.grid');
+        const cells = [];
+
+        // Create grid cells
+        for (let i = 0; i < 6; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell bg-gray-200 rounded-lg shadow p-4';
+            cell.innerHTML = `
+                <div class="flex flex-col h-full">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-semibold">Zone ${i + 1}</span>
+                        <span class="status-indicator text-sm"></span>
+                    </div>
+                    <div class="flex flex-col space-y-2 mt-auto">
+                        <button class="override-on bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2">
+                            Override ON
+                        </button>
+                        <button class="override-off bg-red-500 hover:bg-red-600 text-white rounded px-4 py-2">
+                            Override OFF
+                        </button>
+                        <button class="clear-override bg-gray-500 hover:bg-gray-600 text-white rounded px-4 py-2">
+                            Clear Override
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listeners
+            const onBtn = cell.querySelector('.override-on');
+            const offBtn = cell.querySelector('.override-off');
+            const clearBtn = cell.querySelector('.clear-override');
+            
+            onBtn.addEventListener('click', () => setOverride(i + 1, true));
+            offBtn.addEventListener('click', () => setOverride(i + 1, false));
+            clearBtn.addEventListener('click', () => clearOverride(i + 1));
+            
+            gridContainer.appendChild(cell);
+            cells.push(cell);
+        }
+
+        // Function to update UI based on status
+        async function updateStatus() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+                
+                // Update human detection status
+                const humanStatus = document.getElementById('humanStatus');
+                humanStatus.textContent = data.human_detected ? 'Human Detected' : 'No Human Detected';
+                humanStatus.className = data.human_detected ? 
+                    'px-4 py-2 rounded-full text-white bg-green-500' : 
+                    'px-4 py-2 rounded-full text-white bg-gray-500';
+                
+                // Update grid cells
+                Object.entries(data.grid_activity).forEach(([index, active]) => {
+                    const cell = cells[parseInt(index)];
+                    const statusIndicator = cell.querySelector('.status-indicator');
+                    
+                    if (data.manual_overrides[parseInt(index) + 1] !== undefined) {
+                        // Cell is in override mode
+                        cell.classList.add('override');
+                        cell.classList.remove('active');
+                        statusIndicator.textContent = 'Override';
+                    } else {
+                        // Normal operation
+                        cell.classList.toggle('active', active);
+                        cell.classList.remove('override');
+                        statusIndicator.textContent = active ? 'Motion Detected' : 'No Motion';
+                    }
+                });
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        // Function to set override
+        async function setOverride(espNumber, state) {
+            try {
+                const response = await fetch('/override', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        esp_number: espNumber,
+                        state: state
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to set override');
+                }
+                
+                updateStatus();
+            } catch (error) {
+                console.error('Error setting override:', error);
+            }
+        }
+
+        // Function to clear override
+        async function clearOverride(espNumber) {
+            try {
+                const response = await fetch('/override', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        esp_number: espNumber,
+                        clear: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to clear override');
+                }
+                
+                updateStatus();
+            } catch (error) {
+                console.error('Error clearing override:', error);
+            }
+        }
+
+        // Update status every second
+        setInterval(updateStatus, 1000);
+        
+        // Initial status update
+        updateStatus();
+    </script>
+</body>
+</html>
