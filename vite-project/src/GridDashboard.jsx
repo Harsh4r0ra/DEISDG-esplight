@@ -13,7 +13,7 @@ const GridDashboard = () => {
   // Simulate receiving updates from the backend
   useEffect(() => {
     const socket = new WebSocket('ws://your-backend-url/ws');
-    
+
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
       setGridState(prevState => ({
@@ -71,6 +71,11 @@ const GridDashboard = () => {
           </div>
         </div>
       </div>
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h2 className="text-lg font-semibold mb-2">Live Video Feed</h2>
+        <img src="http://10.9.84.177:4747/video" alt="http://10.9.84.177:4747/video" width="425" height="319" class="shrinkToFit"/>
+      </div>
+
     </div>
   );
 };
