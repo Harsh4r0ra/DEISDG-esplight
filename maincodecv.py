@@ -8,7 +8,7 @@ import time
 app = Flask(__name__)
 
 class GridMotionDetector:
-    def __init__(self, camera_url, grid_size=(2, 2), min_activity_threshold=1000, fps_limit=10):
+    def __init__(self, camera_url, grid_size=(3, 2), min_activity_threshold=1000, fps_limit=10, window_size=(1280, 960)):
         self.camera_url = camera_url
         self.grid_size = grid_size
         self.min_activity_threshold = min_activity_threshold
@@ -16,6 +16,7 @@ class GridMotionDetector:
         self.grid_activity = {}  # This will hold the grid activity state
         self.fps_limit = fps_limit  # Limit FPS
         self.frame_counter = 0  # Frame counter to skip frames if needed
+        self.window_size = window_size  # New larger window size
 
         # Initialize HOG + SVM for human detection
         self.hog = cv2.HOGDescriptor()
@@ -43,19 +44,21 @@ class GridMotionDetector:
         """Process frame and divide into grid"""
         height, width = frame.shape[:2]
 
-        # Resize the frame for faster processing (lower resolution)
-        frame = cv2.resize(frame, (640, 480))
+        # Resize the frame to the new larger window size
+        frame_resized = cv2.resize(frame, self.window_size)
+        resized_height, resized_width = frame_resized.shape[:2]
         
-        cell_height = height // self.grid_size[0]
-        cell_width = width // self.grid_size[1]
+        # Calculate grid cell size based on the resized frame
+        cell_height = resized_height // self.grid_size[0]
+        cell_width = resized_width // self.grid_size[1]
         
         # Convert frame to grayscale for motion detection
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
         
         if self.previous_frame is None:
             self.previous_frame = gray
-            return frame, {}
+            return frame_resized, {}
             
         # Calculate frame difference
         frame_diff = cv2.absdiff(self.previous_frame, gray)
@@ -68,12 +71,12 @@ class GridMotionDetector:
         grid_activity = {}
         
         # Detect humans and draw bounding boxes
-        frame, human_detected = self.detect_humans(frame)
+        frame_resized, human_detected = self.detect_humans(frame_resized)
 
         # Process each grid cell and check for motion or human detection
         for i in range(self.grid_size[0]):
             for j in range(self.grid_size[1]):
-                # Calculate cell coordinates
+                # Calculate cell coordinates in the resized frame
                 x1 = j * cell_width
                 y1 = i * cell_height
                 x2 = (j + 1) * cell_width
@@ -95,13 +98,13 @@ class GridMotionDetector:
                     color = (0, 255, 0)  # Green color for no detection
                 
                 # Draw grid with the appropriate color
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                cv2.rectangle(frame_resized, (x1, y1), (x2, y2), color, 2)
 
         # Store grid activity and human detection status for web display
         self.grid_activity = grid_activity
         self.human_detected = human_detected
         
-        return frame, grid_activity
+        return frame_resized, grid_activity
 
     def run(self):
         """Main loop for video processing"""
@@ -155,8 +158,10 @@ def status():
 
 @app.route('/')
 def index():
-    # Serve a simple HTML page (can be expanded later)
-    return render_template('index.html')  # Create an HTML page to visualize activity
+    try:
+        return render_template('index.html')  # Make sure index.html is in the templates folder
+    except Exception as e:
+        return f"An error occurred: {str(e)}", 500
 
 def run_web_server():
     """Start the Flask web server on a separate thread"""
@@ -169,9 +174,10 @@ if __name__ == "__main__":
     # Initialize and run detector
     detector = GridMotionDetector(
         camera_url=DROID_CAM_URL,
-        grid_size=(2, 2),  # 2x2 grid for 4 ESP8266 devices
+        grid_size=(3, 2),  # 3x2 grid for 6 ESP8266 devices
         min_activity_threshold=1000,
-        fps_limit=10 # Limit FPS to 15 (adjust as needed)
+        fps_limit=10,  # Limit FPS to 10 (adjust as needed)
+        window_size=(1280, 960)  # Larger window size
     )
 
     # Start Flask web server in a separate thread
