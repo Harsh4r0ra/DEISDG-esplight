@@ -13,16 +13,17 @@ logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
+# Initialize Flask app with fixed configuration
 app = Flask(__name__)
+app.config['PROVIDE_AUTOMATIC_OPTIONS'] = True
 app.template_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 
 class GridMotionDetector:
-    def __init__(self, camera_url, esp_urls, grid_size=(3, 2), 
+    def __init__(self, camera_url, esp_urls, grid_size=(2, 2), 
                  min_activity_threshold=1000, fps_limit=10, max_retries=3):
         self.camera_url = camera_url
         self.esp_urls = esp_urls
-        self.grid_size = grid_size
+        self.grid_size = grid_size  # 2x2 grid
         self.min_activity_threshold = min_activity_threshold
         self.previous_frame = None
         self.grid_activity = {}
@@ -316,15 +317,13 @@ def run_with_error_handling():
             2: "http://192.168.137.102",  # ESP8266 #2
             3: "http://192.168.137.103",  # ESP8266 #3
             4: "http://192.168.137.104",  # ESP8266 #4
-            5: "http://192.168.137.105",  # ESP8266 #5
-            6: "http://192.168.137.106"   # ESP8266 #6
         }
         
         # Initialize detector
         detector = GridMotionDetector(
             camera_url=DROID_CAM_URL,
             esp_urls=ESP_URLS,
-            grid_size=(3, 2),
+            grid_size=(2, 2),  # 2x2 grid
             min_activity_threshold=1000,
             fps_limit=10,
             max_retries=3

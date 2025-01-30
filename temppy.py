@@ -310,7 +310,7 @@ def run_with_error_handling():
     
     try:
         # Configuration
-        DROID_CAM_URL = "http://192.168.137.88:4747/video"
+        DROID_CAM_URL = "http://192.168.137.94:4747/video"
         ESP_URLS = {
             1: "http://192.168.137.101",  # ESP8266 #1
             2: "http://192.168.137.102",  # ESP8266 #2
